@@ -17,7 +17,7 @@ from typing import Iterable, List, Mapping, Sequence, Set
 
 
 PROGRAM_NAME = "grimoire-switch"
-VERSION = "v0.1.1"
+VERSION = "v0.1.2"
 APP_BUNDLE_ID = "com.openai.codex"
 CONFIG_FILENAME = "config.toml"
 STATE_DB_FILENAME = "state_5.sqlite"
@@ -45,7 +45,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Grimoire Switch: switch Codex between providers while keeping active threads visible."
     )
-    parser.add_argument("target", nargs="?", choices=("openai", "azure"))
+    parser.add_argument("target", nargs="?", metavar="provider")
     parser.add_argument(
         "--version",
         action="version",
@@ -157,10 +157,8 @@ def read_launchd_environment(name: str) -> str | None:
 
 
 def validate_target_environment(target_provider: str, env: Mapping[str, str]) -> None:
-    if target_provider == "azure" and not env.get("AZURE_OPENAI_API_KEY") and not read_launchd_environment(
-        "AZURE_OPENAI_API_KEY"
-    ):
-        raise SwitcherError("Missing environment variable: AZURE_OPENAI_API_KEY")
+    del target_provider
+    del env
 
 
 def ensure_thread_schema(db_path: Path) -> None:

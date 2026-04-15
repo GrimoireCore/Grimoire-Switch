@@ -8,6 +8,13 @@
 
 ## Fix Log
 
+- 2026-04-15: 发布 `v0.1.2`，对外放出“任意已配置 provider”版本。
+  - 这一版把“支持任意已配置 provider”与“移除 Azure key 预检查”的改动真正随版本一起发布，避免远端最新 Release 仍停留在旧行为。
+  - 对外发版时，记得把 README、快速文档里的显式安装版本号和 `scripts/grimoire_switch.py` 的 `VERSION` 一起同步，避免文档仍指向旧 patch 版本。
+- 2026-04-15: 放开 provider 限制，并移除 Azure key 预检查。
+  - CLI 不再把目标 provider 限死为 `openai` / `azure`；现在应支持任意已配置 provider，参数解析阶段不要再写死 choices。
+  - `openai` 仍然视为内置 provider；其他 provider 只要已存在于 `~/.codex/config.toml` 的 `model_providers` 中，就应允许切换。
+  - 切换到 `azure` 时不再由脚本预检查 `AZURE_OPENAI_API_KEY`；不要把 provider-specific 环境变量校验重新加回去，实际鉴权交给 Codex 自己处理。
 - 2026-04-15: 补发稳定版 `v0.1.1`。
   - `v0.1.0` 发出后发现安装器默认依赖 `raw.githubusercontent.com` 不够稳，因此改为下载 GitHub Release asset，并把对外版本推进到 `v0.1.1`。
   - 以后如果分发链路有修复，不要继续复用旧稳定版号，直接补发新的 patch 版本，避免“Release 已发但安装路径不一致”。
@@ -39,7 +46,7 @@
   - 活跃线程会统一改到目标 provider，归档线程默认不改。
   - 如果未来 Codex 升级导致本地 schema 或 rollout 格式变化，先重新确认 `threads.model_provider` 和 rollout 首条 `session_meta.payload.model_provider` 仍然存在，再运行脚本。
   - 需要回滚时使用 `./scripts/grimoire-switch.command --restore <backup-dir>`。
-  - 修复过一次 Azure key 检测问题：有些 macOS 环境下 `AZURE_OPENAI_API_KEY` 不在当前 shell 里，但存在于 `launchctl getenv`。脚本现在会先查 shell，再查 `launchctl`，后续不要回退成只查 `os.environ`。
+  - 旧版本里修复过一次 Azure key 检测问题；但当前版本已经移除了 Azure key 预检查，后续不要把这段 provider-specific 校验重新加回去。
 - 2026-04-10: 修复 Codex 跨 provider 切换后继续历史线程时报 `invalid_encrypted_content`。
   - 根因是旧 provider 线程里的 `response_item.payload.encrypted_content` 会跟随历史一起发给新 provider，导致新 provider 无法校验旧加密块。
   - 切换脚本在跨 provider 改写 rollout 时，必须删除旧 provider 残留的加密 reasoning 记录，只保留可继续复用的可见对话历史。

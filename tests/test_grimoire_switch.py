@@ -60,12 +60,12 @@ class GrimoireSwitchTests(unittest.TestCase):
         )
 
         self.assertEqual(result.returncode, 0)
-        self.assertEqual(result.stdout.strip(), "grimoire-switch v0.1.1")
+        self.assertEqual(result.stdout.strip(), "grimoire-switch v0.1.2")
 
     def test_parse_args_accepts_thread_id(self) -> None:
-        args = cps.parse_args(["azure", "--thread-id", "thread-openai"])
+        args = cps.parse_args(["anthropic", "--thread-id", "thread-openai"])
 
-        self.assertEqual(args.target, "azure")
+        self.assertEqual(args.target, "anthropic")
         self.assertEqual(args.thread_id, "thread-openai")
 
     def test_get_configured_provider_names_and_rewrite_top_level_provider(self) -> None:
@@ -121,6 +121,28 @@ class GrimoireSwitchTests(unittest.TestCase):
             with self.assertRaises(cps.SwitcherError):
                 cps.validate_target_provider_available(config_path, "unknown")
 
+    def test_custom_configured_provider_is_allowed(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = Path(temp_dir) / "config.toml"
+            config_path.write_text(
+                '\n'.join(
+                    [
+                        'model = "gpt-5.4"',
+                        'model_provider = "azure"',
+                        "",
+                        "[model_providers.azure]",
+                        'name = "Azure"',
+                        "",
+                        "[model_providers.anthropic]",
+                        'name = "Anthropic"',
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            cps.validate_target_provider_available(config_path, "anthropic")
+
     def test_rewrite_top_level_provider_inserts_missing_entry(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "config.toml"
@@ -144,18 +166,13 @@ class GrimoireSwitchTests(unittest.TestCase):
             self.assertIn('model_provider = "azure"', rewritten)
             self.assertEqual(cps.read_top_level_model_provider(config_path), "azure")
 
-    def test_require_azure_key_for_target(self) -> None:
-        cps.validate_target_environment("openai", {})
-
-        with mock.patch.object(cps, "read_launchd_environment", return_value=None):
-            with self.assertRaises(cps.SwitcherError):
-                cps.validate_target_environment("azure", {})
-
-        cps.validate_target_environment("azure", {"AZURE_OPENAI_API_KEY": "set"})
-
-    def test_require_azure_key_accepts_launchctl_fallback(self) -> None:
-        with mock.patch.object(cps, "read_launchd_environment", return_value="set-from-launchctl"):
+    def test_validate_target_environment_does_not_require_azure_key(self) -> None:
+        with mock.patch.object(cps, "read_launchd_environment") as launchd_env:
+            cps.validate_target_environment("openai", {})
             cps.validate_target_environment("azure", {})
+            cps.validate_target_environment("anthropic", {})
+
+        launchd_env.assert_not_called()
 
     def test_collect_switchable_threads_skips_archived_rows(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -767,9 +784,9 @@ class GrimoireSwitchTests(unittest.TestCase):
                         "        output = args[index + 1]",
                         "url = next((value for value in reversed(args) if '://' in value), '')",
                         "if url.endswith('/releases/latest'):",
-                        "    sys.stdout.write('{\"tag_name\": \"v0.1.1\"}')",
+                        "    sys.stdout.write('{\"tag_name\": \"v0.1.2\"}')",
                         "elif output:",
-                        "    Path(output).write_text('#!/usr/bin/env python3\\nprint(\"grimoire-switch v0.1.1\")\\n', encoding='utf-8')",
+                        "    Path(output).write_text('#!/usr/bin/env python3\\nprint(\"grimoire-switch v0.1.2\")\\n', encoding='utf-8')",
                         "else:",
                         "    print(f'unexpected curl invocation: {args}', file=sys.stderr)",
                         "    sys.exit(10)",
@@ -792,7 +809,7 @@ class GrimoireSwitchTests(unittest.TestCase):
             self.assertIn("--max-time", logged)
             self.assertIn("--retry", logged)
             self.assertIn(
-                "https://github.com/GrimoireCore/Grimoire-Switch/releases/download/v0.1.1/grimoire_switch.py",
+                "https://github.com/GrimoireCore/Grimoire-Switch/releases/download/v0.1.2/grimoire_switch.py",
                 logged,
             )
 

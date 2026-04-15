@@ -1,6 +1,6 @@
 # Grimoire Switch
 
-`Grimoire Switch` 是一个面向 macOS 的本地工具，用来在 Codex 的 `openai` / `azure` provider 之间切换当前可见线程，并修正继续历史线程时需要同步的本地状态。
+`Grimoire Switch` 是一个面向 macOS 的本地工具，用来在 Codex 的任意已配置 `provider` 之间切换当前可见线程，并修正继续历史线程时需要同步的本地状态。
 
 它不是 Codex 官方功能，会直接修改 `~/.codex` 下的本地配置、SQLite 和 rollout 文件。使用前请先理解风险。
 
@@ -22,7 +22,7 @@ tmp="$(mktemp)" && curl -fsSL https://raw.githubusercontent.com/GrimoireCore/Gri
 如果你想安装指定版本，把版本号追加到安装器后面：
 
 ```bash
-tmp="$(mktemp)" && curl -fsSL https://raw.githubusercontent.com/GrimoireCore/Grimoire-Switch/main/install.sh -o "$tmp" && bash "$tmp" --version v0.1.1 && rm -f "$tmp"
+tmp="$(mktemp)" && curl -fsSL https://raw.githubusercontent.com/GrimoireCore/Grimoire-Switch/main/install.sh -o "$tmp" && bash "$tmp" --version v0.1.2 && rm -f "$tmp"
 ```
 
 安装完成后，二进制会放到 `~/.local/bin/grimoire-switch`。如果你的 `PATH` 里还没有 `~/.local/bin`，安装器会直接提示下一步命令。
@@ -56,28 +56,22 @@ grimoire-switch --help
 grimoire-switch --version
 ```
 
-切到 `openai`：
+切到任意目标 provider：
 
 ```bash
-grimoire-switch openai
-```
-
-切到 `azure`：
-
-```bash
-grimoire-switch azure
+grimoire-switch <provider-name>
 ```
 
 只预览，不真正改文件：
 
 ```bash
-grimoire-switch azure --dry-run
+grimoire-switch <provider-name> --dry-run
 ```
 
 只切换一个活跃线程：
 
 ```bash
-grimoire-switch azure --thread-id <thread-id>
+grimoire-switch <provider-name> --thread-id <thread-id>
 ```
 
 从备份回滚：
@@ -100,10 +94,10 @@ grimoire-switch --restore /absolute/path/to/backup-dir
 - 说明 `~/.local/bin` 还不在 `PATH` 里。
 - 先执行安装器输出的 `export PATH="~/.local/bin:$PATH"`，再重开一个终端验证。
 
-`Missing environment variable: AZURE_OPENAI_API_KEY`
+`Provider 'xxx' is not available`
 
-- 切到 `azure` 时必须能拿到 `AZURE_OPENAI_API_KEY`。
-- 工具会先查当前 shell，再查 `launchctl getenv AZURE_OPENAI_API_KEY`。
+- 说明你要切换到的 provider 还没有在当前 Codex 配置里声明，或者名字拼错了。
+- `openai` 仍然按内置 provider 处理；其他 provider 需要先出现在 `~/.codex/config.toml` 的 `model_providers` 里。
 
 `Could not detect Codex app with bundle id com.openai.codex`
 
@@ -119,7 +113,7 @@ grimoire-switch --restore /absolute/path/to/backup-dir
 如果你是在本仓库里开发或调试，也可以继续直接用仓库内入口：
 
 ```bash
-./scripts/grimoire-switch.command azure --dry-run
+./scripts/grimoire-switch.command <provider-name> --dry-run
 ```
 
 ## 发布说明（维护者）
