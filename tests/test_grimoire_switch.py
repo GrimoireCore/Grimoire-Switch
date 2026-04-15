@@ -60,7 +60,7 @@ class GrimoireSwitchTests(unittest.TestCase):
         )
 
         self.assertEqual(result.returncode, 0)
-        self.assertEqual(result.stdout.strip(), "grimoire-switch v0.1.0")
+        self.assertEqual(result.stdout.strip(), "grimoire-switch v0.1.1")
 
     def test_parse_args_accepts_thread_id(self) -> None:
         args = cps.parse_args(["azure", "--thread-id", "thread-openai"])
@@ -739,6 +739,63 @@ class GrimoireSwitchTests(unittest.TestCase):
             self.assertIn("PATH", result.stdout)
             self.assertIn(str(home_dir / ".local" / "bin"), result.stdout)
 
+    def test_install_script_uses_timeout_and_retry_flags_for_curl(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            home_dir = temp_root / "home"
+            fake_curl = temp_root / "fake-curl.py"
+            log_path = temp_root / "curl.log"
+            fake_curl.write_text(
+                "\n".join(
+                    [
+                        "#!/usr/bin/env python3",
+                        "import os",
+                        "import sys",
+                        "from pathlib import Path",
+                        "",
+                        "args = sys.argv[1:]",
+                        f"log_path = Path({str(log_path)!r})",
+                        "log_path.write_text(' '.join(args) + '\\n', encoding='utf-8')",
+                        "required = ['--connect-timeout', '15', '--max-time', '60', '--retry', '3']",
+                        "for item in required:",
+                        "    if item not in args:",
+                        "        print(f'missing curl flag: {item}', file=sys.stderr)",
+                        "        sys.exit(9)",
+                        "output = None",
+                        "for index, value in enumerate(args[:-1]):",
+                        "    if value == '-o':",
+                        "        output = args[index + 1]",
+                        "url = next((value for value in reversed(args) if '://' in value), '')",
+                        "if url.endswith('/releases/latest'):",
+                        "    sys.stdout.write('{\"tag_name\": \"v0.1.1\"}')",
+                        "elif output:",
+                        "    Path(output).write_text('#!/usr/bin/env python3\\nprint(\"grimoire-switch v0.1.1\")\\n', encoding='utf-8')",
+                        "else:",
+                        "    print(f'unexpected curl invocation: {args}', file=sys.stderr)",
+                        "    sys.exit(10)",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            fake_curl.chmod(0o755)
+
+            result = self._run_install_script(
+                home_dir=home_dir,
+                extra_env={
+                    "GRIMOIRE_SWITCH_CURL_BIN": str(fake_curl),
+                },
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            logged = log_path.read_text(encoding="utf-8")
+            self.assertIn("--connect-timeout", logged)
+            self.assertIn("--max-time", logged)
+            self.assertIn("--retry", logged)
+            self.assertIn(
+                "https://github.com/GrimoireCore/Grimoire-Switch/releases/download/v0.1.1/grimoire_switch.py",
+                logged,
+            )
+
     def test_install_script_overwrites_existing_installation(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = Path(temp_dir)
@@ -912,7 +969,7 @@ class GrimoireSwitchTests(unittest.TestCase):
             encoding="utf-8",
         )
         for version, script_source in versions.items():
-            target = raw_root / version / "scripts" / "grimoire_switch.py"
+            target = raw_root / version / "grimoire_switch.py"
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(script_source, encoding="utf-8")
 

@@ -17,7 +17,7 @@ from typing import Iterable, List, Mapping, Sequence, Set
 
 
 PROGRAM_NAME = "grimoire-switch"
-VERSION = "v0.1.0"
+VERSION = "v0.1.1"
 APP_BUNDLE_ID = "com.openai.codex"
 CONFIG_FILENAME = "config.toml"
 STATE_DB_FILENAME = "state_5.sqlite"

@@ -3,10 +3,11 @@ set -euo pipefail
 
 REPO_SLUG="${GRIMOIRE_SWITCH_REPO_SLUG:-GrimoireCore/Grimoire-Switch}"
 RELEASE_API_URL="${GRIMOIRE_SWITCH_RELEASE_API_URL:-https://api.github.com/repos/${REPO_SLUG}/releases/latest}"
-DOWNLOAD_BASE_URL="${GRIMOIRE_SWITCH_DOWNLOAD_BASE_URL:-https://raw.githubusercontent.com/${REPO_SLUG}}"
+DOWNLOAD_BASE_URL="${GRIMOIRE_SWITCH_DOWNLOAD_BASE_URL:-https://github.com/${REPO_SLUG}/releases/download}"
 INSTALL_DIR="${GRIMOIRE_SWITCH_INSTALL_DIR:-$HOME/.local/bin}"
 INSTALL_PATH="${INSTALL_DIR}/grimoire-switch"
 OS_NAME="${GRIMOIRE_SWITCH_UNAME:-$(uname -s)}"
+CURL_FLAGS=(--fail --silent --show-error --location --connect-timeout 15 --max-time 60 --retry 3)
 
 usage() {
   cat <<'EOF'
@@ -100,12 +101,12 @@ trap cleanup EXIT
 if [[ -n "$requested_version" ]]; then
   selected_version="$requested_version"
 else
-  release_metadata="$("$CURL_BIN" -fsSL "$RELEASE_API_URL")" || fail "Failed to fetch latest release metadata from ${RELEASE_API_URL}"
+  release_metadata="$("$CURL_BIN" "${CURL_FLAGS[@]}" "$RELEASE_API_URL")" || fail "Failed to fetch latest release metadata from ${RELEASE_API_URL}"
   selected_version="$(printf '%s' "$release_metadata" | parse_latest_release_tag "$PYTHON_BIN")" || fail "Failed to resolve the latest release tag"
 fi
 
-download_url="${DOWNLOAD_BASE_URL}/${selected_version}/scripts/grimoire_switch.py"
-"$CURL_BIN" -fsSL "$download_url" -o "$tmp_file" || fail "Failed to download ${download_url}"
+download_url="${DOWNLOAD_BASE_URL}/${selected_version}/grimoire_switch.py"
+"$CURL_BIN" "${CURL_FLAGS[@]}" "$download_url" -o "$tmp_file" || fail "Failed to download ${download_url}"
 
 chmod +x "$tmp_file"
 mv "$tmp_file" "$INSTALL_PATH"

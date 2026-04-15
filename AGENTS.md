@@ -8,12 +8,17 @@
 
 ## Fix Log
 
+- 2026-04-15: 补发稳定版 `v0.1.1`。
+  - `v0.1.0` 发出后发现安装器默认依赖 `raw.githubusercontent.com` 不够稳，因此改为下载 GitHub Release asset，并把对外版本推进到 `v0.1.1`。
+  - 以后如果分发链路有修复，不要继续复用旧稳定版号，直接补发新的 patch 版本，避免“Release 已发但安装路径不一致”。
 - 2026-04-15: 准备首个稳定版 `v0.1.0`。
   - `scripts/grimoire_switch.py` 里的 `VERSION` 是对外 CLI 的真实版本号；准备 Release 时先改这里，再跑测试、打同名 tag、发 GitHub Release。
   - 首个公开稳定版采用 `v0.1.0`，避免继续以 `0.0.0-dev` 对外安装和排障。
 - 2026-04-15: 新增 GitHub-first 安装入口与公开版本号。
-  - 根目录新增 `install.sh`，默认解析 `GrimoireCore/Grimoire-Switch` 的最新 GitHub Release tag，并安装对应 tag 下的 `scripts/grimoire_switch.py` 到 `~/.local/bin/grimoire-switch`。
+  - 根目录新增 `install.sh`，默认解析 `GrimoireCore/Grimoire-Switch` 的最新 GitHub Release tag，并安装对应 Release asset `grimoire_switch.py` 到 `~/.local/bin/grimoire-switch`。
   - `install.sh` 需要先校验 `macOS`、`curl`、`python3`，成功安装后如果 `~/.local/bin` 不在 `PATH` 里，要直接打印下一步提示。
+  - `install.sh` 里的所有 `curl` 下载都必须带超时和重试参数；真实网络下如果没有 `--connect-timeout` / `--max-time` / `--retry`，安装过程会看起来像卡死。
+  - 不要再默认从 `raw.githubusercontent.com/<tag>/...` 下载发布脚本；真实环境下这个域名可能超时，Release asset 更符合“GitHub Release 驱动安装”的目标。
   - CLI 新增公开 `--version`，发布时记得同步更新 `scripts/grimoire_switch.py` 里的 `VERSION` 常量，再创建同名 Git tag / GitHub Release。
   - 根目录 README 现在是对外主入口，优先写安装、升级、卸载、风险和故障排查；仓库内 `.command` 入口保留给本地开发/调试。
 - 2026-04-15: 测试环境兼容系统 Python 3.9。

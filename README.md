@@ -22,7 +22,7 @@ tmp="$(mktemp)" && curl -fsSL https://raw.githubusercontent.com/GrimoireCore/Gri
 如果你想安装指定版本，把版本号追加到安装器后面：
 
 ```bash
-tmp="$(mktemp)" && curl -fsSL https://raw.githubusercontent.com/GrimoireCore/Grimoire-Switch/main/install.sh -o "$tmp" && bash "$tmp" --version v0.1.0 && rm -f "$tmp"
+tmp="$(mktemp)" && curl -fsSL https://raw.githubusercontent.com/GrimoireCore/Grimoire-Switch/main/install.sh -o "$tmp" && bash "$tmp" --version v0.1.1 && rm -f "$tmp"
 ```
 
 安装完成后，二进制会放到 `~/.local/bin/grimoire-switch`。如果你的 `PATH` 里还没有 `~/.local/bin`，安装器会直接提示下一步命令。
@@ -130,4 +130,5 @@ grimoire-switch --restore /absolute/path/to/backup-dir
 2. 运行测试
 3. 创建并推送 Git tag
 4. 在 GitHub 上发布同名 Release
-5. 之后安装器默认会解析最新 Release，并安装对应 tag 下的 `scripts/grimoire_switch.py`
+5. 给该 Release 上传名为 `grimoire_switch.py` 的 asset（内容来自仓库里的 `scripts/grimoire_switch.py`）
+6. 之后安装器默认会解析最新 Release，并下载对应 Release asset 安装到 `~/.local/bin/grimoire-switch`
