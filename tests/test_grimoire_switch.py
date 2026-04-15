@@ -1,5 +1,9 @@
+from __future__ import annotations
+
 import json
+import os
 import sqlite3
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -9,6 +13,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
+INSTALL_SCRIPT = PROJECT_ROOT / "install.sh"
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 import grimoire_switch as cps  # noqa: E402
@@ -46,6 +51,17 @@ CREATE TABLE threads (
 
 
 class GrimoireSwitchTests(unittest.TestCase):
+    def test_cli_reports_public_version(self) -> None:
+        result = subprocess.run(
+            [sys.executable, str(SCRIPTS_DIR / "grimoire_switch.py"), "--version"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("grimoire-switch", result.stdout)
+
     def test_parse_args_accepts_thread_id(self) -> None:
         args = cps.parse_args(["azure", "--thread-id", "thread-openai"])
 
@@ -589,6 +605,182 @@ class GrimoireSwitchTests(unittest.TestCase):
             manifest = json.loads((backup_dirs[0] / "backup-manifest.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["affected_threads"], ["thread-openai"])
 
+    def test_install_script_installs_latest_release_and_smoke_tests_cli(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            remote_root = temp_root / "remote"
+            latest_tag = "v1.2.3"
+            self._write_release_fixture(
+                remote_root,
+                latest_tag=latest_tag,
+                versions={latest_tag: (SCRIPTS_DIR / "grimoire_switch.py").read_text(encoding="utf-8")},
+            )
+            home_dir = temp_root / "home"
+            workdir = temp_root / "outside-repo"
+            workdir.mkdir()
+
+            result = self._run_install_script(
+                home_dir=home_dir,
+                workdir=workdir,
+                extra_env={
+                    "GRIMOIRE_SWITCH_RELEASE_API_URL": f"file://{remote_root / 'latest-release.json'}",
+                    "GRIMOIRE_SWITCH_DOWNLOAD_BASE_URL": f"file://{remote_root / 'raw'}",
+                },
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            installed_cli = home_dir / ".local" / "bin" / "grimoire-switch"
+            self.assertTrue(installed_cli.exists())
+
+            help_result = subprocess.run(
+                [str(installed_cli), "--help"],
+                check=False,
+                capture_output=True,
+                text=True,
+                cwd=workdir,
+            )
+            version_result = subprocess.run(
+                [str(installed_cli), "--version"],
+                check=False,
+                capture_output=True,
+                text=True,
+                cwd=workdir,
+            )
+
+            self.assertEqual(help_result.returncode, 0, help_result.stderr)
+            self.assertIn("Grimoire Switch", help_result.stdout)
+            self.assertEqual(version_result.returncode, 0, version_result.stderr)
+            self.assertIn("grimoire-switch", version_result.stdout)
+
+    def test_install_script_supports_explicit_version(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            remote_root = temp_root / "remote"
+            self._write_release_fixture(
+                remote_root,
+                latest_tag="v2.0.0",
+                versions={
+                    "v1.0.0": self._fake_cli_source("v1.0.0"),
+                    "v2.0.0": self._fake_cli_source("v2.0.0"),
+                },
+            )
+            home_dir = temp_root / "home"
+
+            result = self._run_install_script(
+                home_dir=home_dir,
+                extra_args=["--version", "v1.0.0"],
+                extra_env={
+                    "GRIMOIRE_SWITCH_RELEASE_API_URL": f"file://{remote_root / 'latest-release.json'}",
+                    "GRIMOIRE_SWITCH_DOWNLOAD_BASE_URL": f"file://{remote_root / 'raw'}",
+                },
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            installed_cli = home_dir / ".local" / "bin" / "grimoire-switch"
+            version_result = subprocess.run(
+                [str(installed_cli), "--version"],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(version_result.returncode, 0, version_result.stderr)
+            self.assertIn("v1.0.0", version_result.stdout)
+
+    def test_install_script_rejects_non_macos(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            home_dir = temp_root / "home"
+
+            result = self._run_install_script(
+                home_dir=home_dir,
+                extra_env={"GRIMOIRE_SWITCH_UNAME": "Linux"},
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("macOS", result.stderr)
+
+    def test_install_script_reports_missing_python3(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            home_dir = temp_root / "home"
+
+            result = self._run_install_script(
+                home_dir=home_dir,
+                extra_env={
+                    "GRIMOIRE_SWITCH_PYTHON_BIN": "/definitely-missing/python3",
+                },
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("python3", result.stderr)
+
+    def test_install_script_warns_when_install_dir_is_not_on_path(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            remote_root = temp_root / "remote"
+            latest_tag = "v1.2.3"
+            self._write_release_fixture(
+                remote_root,
+                latest_tag=latest_tag,
+                versions={latest_tag: self._fake_cli_source(latest_tag)},
+            )
+            home_dir = temp_root / "home"
+
+            result = self._run_install_script(
+                home_dir=home_dir,
+                extra_env={
+                    "GRIMOIRE_SWITCH_RELEASE_API_URL": f"file://{remote_root / 'latest-release.json'}",
+                    "GRIMOIRE_SWITCH_DOWNLOAD_BASE_URL": f"file://{remote_root / 'raw'}",
+                    "PATH": "/usr/bin:/bin",
+                },
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("PATH", result.stdout)
+            self.assertIn(str(home_dir / ".local" / "bin"), result.stdout)
+
+    def test_install_script_overwrites_existing_installation(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            remote_root = temp_root / "remote"
+            self._write_release_fixture(
+                remote_root,
+                latest_tag="v2.0.0",
+                versions={
+                    "v1.0.0": self._fake_cli_source("v1.0.0"),
+                    "v2.0.0": self._fake_cli_source("v2.0.0"),
+                },
+            )
+            home_dir = temp_root / "home"
+            env = {
+                "GRIMOIRE_SWITCH_RELEASE_API_URL": f"file://{remote_root / 'latest-release.json'}",
+                "GRIMOIRE_SWITCH_DOWNLOAD_BASE_URL": f"file://{remote_root / 'raw'}",
+            }
+
+            first_result = self._run_install_script(
+                home_dir=home_dir,
+                extra_args=["--version", "v1.0.0"],
+                extra_env=env,
+            )
+            second_result = self._run_install_script(
+                home_dir=home_dir,
+                extra_args=["--version", "v2.0.0"],
+                extra_env=env,
+            )
+
+            self.assertEqual(first_result.returncode, 0, first_result.stderr)
+            self.assertEqual(second_result.returncode, 0, second_result.stderr)
+
+            installed_cli = home_dir / ".local" / "bin" / "grimoire-switch"
+            version_result = subprocess.run(
+                [str(installed_cli), "--version"],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(version_result.returncode, 0, version_result.stderr)
+            self.assertIn("v2.0.0", version_result.stdout)
+
     def _write_thread_db(self, db_path: Path) -> None:
         with sqlite3.connect(db_path) as connection:
             connection.executescript(THREADS_SCHEMA)
@@ -685,6 +877,62 @@ class GrimoireSwitchTests(unittest.TestCase):
                     ),
                 ],
             )
+
+    def _run_install_script(
+        self,
+        home_dir: Path,
+        extra_args: list[str] | None = None,
+        extra_env: dict[str, str] | None = None,
+        workdir: Path | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        env = os.environ.copy()
+        env["HOME"] = str(home_dir)
+        env.setdefault("PATH", os.environ.get("PATH", ""))
+        if extra_env:
+            env.update(extra_env)
+        return subprocess.run(
+            ["/bin/bash", str(INSTALL_SCRIPT), *(extra_args or [])],
+            check=False,
+            capture_output=True,
+            text=True,
+            cwd=workdir or PROJECT_ROOT,
+            env=env,
+        )
+
+    def _write_release_fixture(
+        self,
+        remote_root: Path,
+        latest_tag: str,
+        versions: dict[str, str],
+    ) -> None:
+        raw_root = remote_root / "raw"
+        raw_root.mkdir(parents=True)
+        (remote_root / "latest-release.json").write_text(
+            json.dumps({"tag_name": latest_tag}),
+            encoding="utf-8",
+        )
+        for version, script_source in versions.items():
+            target = raw_root / version / "scripts" / "grimoire_switch.py"
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(script_source, encoding="utf-8")
+
+    def _fake_cli_source(self, version: str) -> str:
+        return "\n".join(
+            [
+                "#!/usr/bin/env python3",
+                "import sys",
+                "",
+                f"VERSION = {version!r}",
+                "",
+                "if '--version' in sys.argv:",
+                "    print(f'grimoire-switch {VERSION}')",
+                "elif '--help' in sys.argv:",
+                "    print('Grimoire Switch help')",
+                "else:",
+                "    print(f'grimoire-switch {VERSION}')",
+                "",
+            ]
+        )
 
 
 if __name__ == "__main__":

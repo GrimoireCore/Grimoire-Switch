@@ -16,6 +16,8 @@ from pathlib import Path
 from typing import Iterable, List, Mapping, Sequence, Set
 
 
+PROGRAM_NAME = "grimoire-switch"
+VERSION = "0.0.0-dev"
 APP_BUNDLE_ID = "com.openai.codex"
 CONFIG_FILENAME = "config.toml"
 STATE_DB_FILENAME = "state_5.sqlite"
@@ -44,6 +46,11 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         description="Grimoire Switch: switch Codex between providers while keeping active threads visible."
     )
     parser.add_argument("target", nargs="?", choices=("openai", "azure"))
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"{PROGRAM_NAME} {VERSION}",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Print the actions without modifying files.")
     parser.add_argument(
         "--thread-id",

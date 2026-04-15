@@ -8,6 +8,13 @@
 
 ## Fix Log
 
+- 2026-04-15: 新增 GitHub-first 安装入口与公开版本号。
+  - 根目录新增 `install.sh`，默认解析 `GrimoireCore/Grimoire-Switch` 的最新 GitHub Release tag，并安装对应 tag 下的 `scripts/grimoire_switch.py` 到 `~/.local/bin/grimoire-switch`。
+  - `install.sh` 需要先校验 `macOS`、`curl`、`python3`，成功安装后如果 `~/.local/bin` 不在 `PATH` 里，要直接打印下一步提示。
+  - CLI 新增公开 `--version`，发布时记得同步更新 `scripts/grimoire_switch.py` 里的 `VERSION` 常量，再创建同名 Git tag / GitHub Release。
+  - 根目录 README 现在是对外主入口，优先写安装、升级、卸载、风险和故障排查；仓库内 `.command` 入口保留给本地开发/调试。
+- 2026-04-15: 测试环境兼容系统 Python 3.9。
+  - 这个仓库里的测试文件不要直接写 Python 3.10+ 才支持的 `list[str] | None` 这类联合类型语法，除非文件显式启用了兼容处理；当前 macOS 系统自带 `python3` 仍可能是 3.9。
 - 2026-04-15: 项目改名为 Grimoire Switch，并补充路径带空格的执行约束。
   - 仓库内对项目入口、脚本、模块、测试与文档的引用统一改为 `Grimoire Switch` / `grimoire-switch` / `grimoire_switch`，避免继续混用旧项目名。
   - 入口脚本更新为 `/Users/handong/GithubProduct/Grimoire Switch/scripts/grimoire-switch.command`，Python helper 更新为 `/Users/handong/GithubProduct/Grimoire Switch/scripts/grimoire_switch.py`。

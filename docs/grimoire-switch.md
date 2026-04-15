@@ -10,10 +10,17 @@ Grimoire Switch is a local utility that switches Codex between `openai` and `azu
 ## Usage
 
 ```bash
+grimoire-switch openai
+grimoire-switch azure
+grimoire-switch azure --dry-run
+grimoire-switch --restore /absolute/path/to/backup-dir
+```
+
+If you are working directly inside this repository, the local launcher is still available:
+
+```bash
 ./scripts/grimoire-switch.command openai
 ./scripts/grimoire-switch.command azure
-./scripts/grimoire-switch.command azure --dry-run
-./scripts/grimoire-switch.command --restore /absolute/path/to/backup-dir
 ```
 
 `/absolute/path/to/backup-dir` is a placeholder. Replace it with a real directory under `~/.codex/provider-switch-backups/`, for example `~/.codex/provider-switch-backups/20260410T052825Z`.
