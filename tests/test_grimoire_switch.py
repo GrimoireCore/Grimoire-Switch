@@ -60,7 +60,7 @@ class GrimoireSwitchTests(unittest.TestCase):
         )
 
         self.assertEqual(result.returncode, 0)
-        self.assertIn("grimoire-switch", result.stdout)
+        self.assertEqual(result.stdout.strip(), "grimoire-switch v0.1.0")
 
     def test_parse_args_accepts_thread_id(self) -> None:
         args = cps.parse_args(["azure", "--thread-id", "thread-openai"])

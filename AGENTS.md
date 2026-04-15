@@ -8,6 +8,9 @@
 
 ## Fix Log
 
+- 2026-04-15: 准备首个稳定版 `v0.1.0`。
+  - `scripts/grimoire_switch.py` 里的 `VERSION` 是对外 CLI 的真实版本号；准备 Release 时先改这里，再跑测试、打同名 tag、发 GitHub Release。
+  - 首个公开稳定版采用 `v0.1.0`，避免继续以 `0.0.0-dev` 对外安装和排障。
 - 2026-04-15: 新增 GitHub-first 安装入口与公开版本号。
   - 根目录新增 `install.sh`，默认解析 `GrimoireCore/Grimoire-Switch` 的最新 GitHub Release tag，并安装对应 tag 下的 `scripts/grimoire_switch.py` 到 `~/.local/bin/grimoire-switch`。
   - `install.sh` 需要先校验 `macOS`、`curl`、`python3`，成功安装后如果 `~/.local/bin` 不在 `PATH` 里，要直接打印下一步提示。
